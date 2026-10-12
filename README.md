@@ -1,115 +1,218 @@
-# FBManager — Facebook Pages on Windows and Linux
+# FBManager
 
-**Windows:** extract `FBManager-0.5.0-Windows-x64.zip` and double-click `SPUSTIT.bat`.
-No Python installation is needed. Read the [Czech Windows quick start](README.windows.cs.md).
+Manage Facebook Pages from the terminal on Windows and Linux. FBManager uses
+the Graph API to publish posts, like and comment as a saved Page, and keep a
+local history of actions.
 
-**Česky: [jednoduchý návod k použití](README.cs.md) ·
-[podrobný návod na získání tokenu](docs/ACCESS_TOKEN.cs.md)**
-
-A CLI with a four-option interactive menu: **add a Page, list Pages, edit
-Page details, and perform an action**. It uses the official Graph API and a Page
-access token for each saved Page. No browser automation or personal-profile login
-is used.
-
-**[Read the usage guide](docs/USAGE.md)** for token setup, all commands, menu use,
-examples, and troubleshooting.
-
-## Set up authorization and import an existing Page
-
-For first-time setup, follow the [complete Czech beginner tutorial](docs/START_HERE.cs.md):
-a real Facebook profile, manual Page creation on Facebook, one developer registration,
-one Meta app, User consent, and importing the existing Page. The app does not create
-Facebook accounts or Pages. One developer/app can manage multiple authorized Pages.
-
-```sh
-.venv/bin/fbmanager auth setup
-.venv/bin/fbmanager auth pages
-.venv/bin/fbmanager accounts import shop
-.venv/bin/fbmanager post shop --text "Hello from our Page"
-```
-
-`auth setup` asks locally for the App ID, hidden App Secret and hidden User token,
-then exchanges and encrypts long-lived User authorization. `accounts import` offers
-an interactive selection of existing Pages; scripts must supply `--page-id NUMERIC_ID`.
-Each imported Page token is checked and encrypted. Tokens can still be revoked.
-Renew with `auth renew`, then `accounts refresh-token shop` for each saved Page.
-
-Removed in 0.5.0: `accounts create`, `accounts resume`, `accounts jobs`, and
-`auth categories`. Existing credentials and history remain usable. Old creation
-records are left in existing databases but are no longer executed or reserved.
-
-## Quick start
-
-In this workspace, the application is installed in `.venv`:
-
-```sh
-.venv/bin/fbmanager --help
-.venv/bin/fbmanager configure --api-version v26.0
-.venv/bin/fbmanager accounts add mypage --page-id YOUR_NUMERIC_PAGE_ID --info "My Page"
-.venv/bin/fbmanager post mypage --text "Hello from the terminal"
-```
-
-Use the supported API version from your Meta app; `v26.0` above is an example.
-Replace `YOUR_NUMERIC_PAGE_ID` with the Page's ID. Adding a Page asks for the Page
-access token in a hidden prompt, verifies it, and asks you to choose a vault
-passphrase. Later actions unlock that vault; tokens are encrypted with a key
-derived from your passphrase and are never printed.
-
-To use the menu:
-
-```sh
-.venv/bin/fbmanager
-```
-
-For scripts, set `FBMANAGER_PASSPHRASE` securely to avoid the passphrase prompt.
-Explicit `post`, `like`, and `comment` commands submit immediately; the menu shows
-a preview and asks before submitting.
+Use individual commands or an interactive menu to add Pages, list Pages, edit
+their local details, and perform actions. The application works with existing
+Pages you are authorized to manage. It does not create Facebook accounts or
+Pages, log in through a browser, or publish as a personal profile.
 
 ## Features
 
-- Named Pages with local descriptions; token validation and replacement.
-- Existing-Page import, encrypted User authorization, and Page-token renewal.
-- Text posts, one-image posts, and link-preview posts; optional title and hashtags.
-- Likes and comments as any saved Page, using a Graph API post ID.
-- SQLite action history, returned post/comment/photo IDs, and JSON output.
-- Encrypted credential storage; no secrets in CLI output or stored request logs.
-  Meta's token exchange/debug requests carry secrets in HTTPS query parameters;
-  ordinary Page operations use bearer headers. Do not enable HTTP debug logging.
-- No automatic retries after ambiguous writes; outcomes are recorded as unknown.
+- Save multiple Pages under local nicknames.
+- Import Pages through User authorization or add a Page access token directly.
+- Publish text, a single image, or a link preview, with optional titles and hashtags.
+- Like and comment as a saved Page using a Graph API post ID.
+- Check authorization and refresh saved Page tokens.
+- Store encrypted credentials and SQLite action history locally.
+- Return JSON for use in scripts.
 
-Facebook controls which targets and actions your tokens may access. Supplying a
-post ID does not grant access. Cross-Page engagement is attempted through the API
-and may be rejected. **Live Facebook actions have not been verified with your
-credentials.** Automated tests use mocked HTTP.
+## Run from source
 
-## Install elsewhere
+You need **Python 3.11 or newer**, `pip`, and virtual environment support. Internet
+access is required to install dependencies and call Facebook.
 
-With Python 3.11+:
+Clone this repository, or select **Code → Download ZIP** on GitHub and extract it.
+Open a terminal in the repository folder containing `README.md` and `src/`.
+
+This checkout contains the application source without packaging metadata or
+bundled executables. Install its dependencies and run the module directly:
+
+### Linux (Bash or Zsh)
 
 ```sh
 python3 -m venv .venv
-.venv/bin/python -m pip install -e .
-.venv/bin/fbmanager --help
+source .venv/bin/activate
+python -m pip install "httpx>=0.28,<1" "rich>=14,<15" "cryptography>=44,<49"
+export PYTHONPATH="$PWD/src"
+python -m fbmanager --help
 ```
 
-Alternatively, with `uv`: `uv sync --locked`, then `uv run fbmanager`.
-For a user-level command outside this directory: `pipx install .`.
+### Windows (PowerShell)
 
-## Development
+```powershell
+py -3 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install "httpx>=0.28,<1" "rich>=14,<15" "cryptography>=44,<49"
+$env:PYTHONPATH = (Join-Path $PWD "src")
+.\.venv\Scripts\python.exe -m fbmanager --help
+```
 
-Windows builds: [build and verification instructions](docs/WINDOWS_BUILD.md).
+The examples below use `python -m fbmanager`. On Windows, replace `python` with
+`.\.venv\Scripts\python.exe`. Run them from the repository folder. In a new
+terminal, set `PYTHONPATH` again and, on Linux, activate `.venv` again; dependency
+installation is only needed once.
+
+## Connect a Page
+
+Have an existing Facebook Page you can manage and a Meta app configured for the
+Page actions you want to use. Prepare either:
+
+- The app's **App ID**, **App Secret**, and a **User access token** for that app,
+  to import your authorized Pages; or
+- A **Page access token** and the matching numeric **Page ID**, to add a Page directly.
+
+Use a Graph API version supported by your Meta app. FBManager asks for it on
+the first API operation and saves it. Enter the actual version in `vNN.0`
+format; `vNN.0` is a placeholder, not a version to copy.
+
+### Import through User authorization
 
 ```sh
-uv sync --locked
-uv run pytest
-uv run ruff check .
-uv run ruff format --check .
-uv build
+python -m fbmanager auth setup
+python -m fbmanager auth pages
+python -m fbmanager accounts import mypage
 ```
 
-The optional `fbmanager probe` command tests two Pages live; it is not required to
-use the application. See [Meta setup and the optional probe](docs/meta-setup.md).
+`auth setup` prompts for the App ID, App Secret, User token, and a new vault
+passphrase. Secret inputs are hidden. It exchanges the User token and stores
+the authorization encrypted. `accounts import` lets you choose an existing
+Page and saves its verified Page token under the nickname `mypage`.
+User authorization must include `pages_show_list` for listing and importing Pages.
 
-The earlier browser prototype was removed. Existing browser files are not loaded
-or deleted. Page metadata and encrypted tokens use a separate `pages.sqlite3`
-database under `${XDG_DATA_HOME:-~/.local/share}/fbmanager/`.
+### Add a Page token directly
+
+If you already have a Page token, use this instead of the import steps:
+
+```sh
+python -m fbmanager accounts add mypage --page-id YOUR_NUMERIC_PAGE_ID --info "My Page"
+```
+
+Replace `YOUR_NUMERIC_PAGE_ID` with the matching Page ID. The command asks for
+the token in a hidden prompt, verifies it, and encrypts it using your vault
+passphrase. The nickname is local to FBManager.
+
+Check your saved Page:
+
+```sh
+python -m fbmanager accounts list
+python -m fbmanager status mypage
+```
+
+## Usage
+
+Open the interactive menu:
+
+```sh
+python -m fbmanager
+```
+
+The menu previews actions and asks for confirmation. **Direct `post`, `like`,
+and `comment` commands submit immediately.**
+
+### Publish a post
+
+Each command below publishes a separate post:
+
+```sh
+python -m fbmanager post mypage --text "Hello from our Page"
+python -m fbmanager post mypage --text "Our latest photo" --image photo.jpg
+python -m fbmanager post mypage --text "Read more" --link https://example.com
+python -m fbmanager post mypage --text-file post.txt --title "News" --tag updates
+```
+
+Text files use UTF-8. Repeat `--tag` for multiple hashtags. Choose either
+`--image` or `--link` for a post; they cannot be combined.
+
+### Comments, likes, and history
+
+Replace `POST_ID` with a Graph API post ID, such as an ID returned by a publish
+command. A Facebook web URL is not a post ID.
+
+```sh
+python -m fbmanager comment mypage POST_ID --text "Thanks for reading!"
+python -m fbmanager like mypage POST_ID
+python -m fbmanager history --account mypage --limit 10
+python -m fbmanager --json accounts list
+```
+
+Meta determines which targets and actions your authorization permits. A saved
+token or a post ID does not guarantee access to another Page's content.
+
+### Renew authorization
+
+For Pages imported through User authorization, obtain a fresh User token for
+the same app and User, then run:
+
+```sh
+python -m fbmanager auth renew
+python -m fbmanager accounts refresh-token mypage
+```
+
+Repeat `accounts refresh-token` for each saved Page you want to refresh.
+Renewing User authorization does not automatically replace saved Page tokens.
+For a manually added Page, replace its token with:
+
+```sh
+python -m fbmanager accounts edit mypage --replace-token
+```
+
+Use `python -m fbmanager --help` or append `--help` to a subcommand for its options.
+
+## Local data and scripting
+
+FBManager creates `pages.sqlite3` in the following directory:
+
+| Platform | Default data directory |
+| --- | --- |
+| Linux | `$XDG_DATA_HOME/fbmanager`, or `~/.local/share/fbmanager` |
+| Windows | `%LOCALAPPDATA%\FBManager` |
+
+Credentials are encrypted using a key derived from your vault passphrase.
+Page metadata and action history are not encrypted. Keep the passphrase safe;
+back up the database while the application is closed, and keep it out of Git.
+
+| Environment variable | Purpose |
+| --- | --- |
+| `FBMANAGER_HOME` | Override the local data directory. |
+| `FBMANAGER_API_VERSION` | Set the API version; a command's `--api-version` takes precedence. |
+| `FBMANAGER_PASSPHRASE` | Unlock the vault without an interactive prompt. |
+
+For scripts, supply secrets through a secure environment or the supported
+credential-file options shown by `--help`. Use
+`accounts import mypage --page-id YOUR_NUMERIC_PAGE_ID` for non-interactive
+imports. Put `--json` before the subcommand for machine-readable output.
+
+Do not commit tokens, App Secrets, passphrases, or databases. Avoid HTTP debug
+logging: token exchange and inspection requests carry secrets in HTTPS query
+parameters.
+
+## Troubleshooting
+
+| Problem | What to check |
+| --- | --- |
+| `No module named fbmanager` | Run from the repository folder and set `PYTHONPATH` to its `src` directory. |
+| A dependency cannot be imported | Use the same virtual environment Python for dependency installation and execution. |
+| Nothing appears while entering a secret | Hidden input is intentional. Paste once and press Enter. |
+| Wrong vault passphrase | Enter the passphrase you chose for FBManager, not your Facebook password. |
+| No authorized Pages | Check Page access and the app's authorization, then renew the User token. |
+| Expired token or access denied | Check the token, app permissions, Page access, and target restrictions; renew or replace the token as needed. |
+| Action status is `unknown` | Check Facebook and local history before retrying; the action may already have succeeded. |
+
+FBManager does not automatically retry ambiguous writes. Live behavior depends
+on your credentials and Meta's access checks; publishing has not been verified
+with your account.
+
+## Source layout
+
+| File | Responsibility |
+| --- | --- |
+| [cli.py](src/fbmanager/cli.py) | Command parsing, interactive menu, and action execution. |
+| [setup_cli.py](src/fbmanager/setup_cli.py) | Authorization, Page import, and token renewal commands. |
+| [graph.py](src/fbmanager/graph.py) | Graph API requests and error handling for Page actions. |
+| [management.py](src/fbmanager/management.py) | User authorization and Page-token retrieval. |
+| [storage.py](src/fbmanager/storage.py) | SQLite storage and credential encryption. |
+| [probe_cli.py](src/fbmanager/probe_cli.py) / [probe.py](src/fbmanager/probe.py) | Optional live two-Page integration probe. |
+
+The `probe` command makes live API calls and is not required for normal use.
